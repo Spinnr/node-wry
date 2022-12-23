@@ -48,7 +48,6 @@ enum FrontEndMessage {
     Error(FrontEndError),
 }
 
-
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 enum Message {
@@ -159,18 +158,17 @@ fn main() -> wry::Result<()> {
         .with_url("nwv://index.html")?
         .with_ipc_handler(|_window, front_end_message| {
             match serde_json::from_str::<FrontEndMessage>(&front_end_message) {
-                Ok(message) => {
-                    match message {
-                        FrontEndMessage::Message { message } => send_ioc_message(Message::Message { message }),
-                        FrontEndMessage::Log { log } => send_ioc_message(Message::Log { log }),
-                        FrontEndMessage::Error(error) => send_ioc_message(Message::Error(error))
+                Ok(message) => match message {
+                    FrontEndMessage::Message { message } => {
+                        send_ioc_message(Message::Message { message })
                     }
+                    FrontEndMessage::Log { log } => send_ioc_message(Message::Log { log }),
+                    FrontEndMessage::Error(error) => send_ioc_message(Message::Error(error)),
                 },
                 Err(_) => {
                     println!("Unknown IPC message type {}", front_end_message)
                 }
             }
-
         })
         .with_file_drop_handler(|_, data| {
             match data {
@@ -280,7 +278,7 @@ fn main() -> wry::Result<()> {
                 *control_flow = ControlFlow::Exit;
                 send_ioc_message(Message::End {});
             }
-            _ => { }
+            _ => {}
         }
     });
 }
