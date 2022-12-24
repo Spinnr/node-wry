@@ -1,15 +1,16 @@
-import { resolve } from "path";
-import OpenWebView, { NativeWebViewSettings } from "../src/index";
+let {resolve} = require("path");
+let OpenWebView = require("../src/index");
 
 async function runExample() {
     const wv = await OpenWebView({
         title: "Transparent window",
         transparent: true,
-        innerSize: { width: 420, height: 150 },
+        devtools: true,
+        innerSize: {width: 420, height: 150},
         getPath: (src) => resolve(__dirname, "transparent.html"),
-        onMessage: (message: { type: keyof NativeWebViewSettings } & NativeWebViewSettings[keyof NativeWebViewSettings]) => {
+        onMessage: (message) => {
             console.log("Message from WebView:", message);
-            if (typeof message.type === "string") {
+            if(typeof message.type === "string") {
                 wv.set(message.type, message);
             }
         }
