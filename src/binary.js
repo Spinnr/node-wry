@@ -7,9 +7,9 @@ const SYSTEM = platform === "darwin" ? "darwin" : platform === "win32" ? "window
 const ARCH = ["darwin", "linux"].includes(SYSTEM) && process.arch.includes("arm") ? "arm" : "x86";
 
 const BINARY_NAME = `${SYSTEM}-${ARCH}-64-webview${SYSTEM === "windows" ? ".exe" : ""}`
-const BINARY_PATH = resolve(__dirname, "..", "dist", BINARY_NAME);
+const BINARY_PATH = resolve(__dirname, "..", "build", BINARY_NAME);
 
-const URL = "https://github.com/ingSlonik/native-webview/releases/download";
+const URL = "https://github.com/Spinnr/native-webview/releases/download";
 
 function getVersion() {
     const packJSON = readFileSync(resolve(__dirname, "..", "package.json"), "utf-8");
