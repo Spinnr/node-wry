@@ -1,5 +1,5 @@
 let {resolve, extname} = require("path");
-let {spawn, ChildProcessWithoutNullStreams} = require("child_process");
+let {spawn} = require("child_process");
 
 let {downloadBinaryFile, getBinaryPath, isBinaryFile} = require("./binary");
 
@@ -75,15 +75,15 @@ class NativeWebView {
     #onDrop = (drop) => {}; // (drop: Drop) => void
 
     constructor(settings, childProcess) {
-        const {title, transparent, getPath, onDrop, onMessage, ...other} = settings;
-        this.transparent = transparent || false;
-        this.settings = {title: {title}, ...other};
+        const {title, transparent, getPath, onDrop, onMessage, devtools, ...other} = settings;
+        this.#transparent = transparent || false;
+        this.#settings = {title: {title}, devtools: {devtools}, ...other};
 
-        if(getPath) this.getPath = getPath;
-        if(onDrop) this.onDrop = onDrop;
-        if(onMessage) this.onMessage = onMessage;
+        if(getPath) this.#getPath = getPath;
+        if(onDrop) this.#onDrop = onDrop;
+        if(onMessage) this.#onMessage = onMessage;
 
-        this.initChildProcess(childProcess);
+        this.#initChildProcess(childProcess);
     }
 
     // web common MIME types
@@ -107,15 +107,15 @@ class NativeWebView {
     }
 
     #sendPath(path) {
-        if(this.childProcess === null) throw Error("WebView is closed.");
+        if(this.#childProcess === null) throw Error("WebView is closed.");
 
-        this.childProcess.stdin.write(`${IO_CHANNEL_PREFIX}${JSON.stringify({type: "path", ...path})}\n`);
+        this.#childProcess.stdin.write(`${IO_CHANNEL_PREFIX}${JSON.stringify({type: "path", ...path})}\n`);
     }
 
     #sendSetting(type, setting) { // <Type extends keyof NativeWebViewSettings>(type: Type, setting: NativeWebViewSettings[Type]) {
-        if(this.childProcess === null) throw Error("WebView is closed.");
+        if(this.#childProcess === null) throw Error("WebView is closed.");
 
-        this.childProcess.stdin.write(`${IO_CHANNEL_PREFIX}${JSON.stringify({type, ...setting})}\n`);
+        this.#childProcess.stdin.write(`${IO_CHANNEL_PREFIX}${JSON.stringify({type, ...setting})}\n`);
     }
 
     #receiveChannel(message) {
@@ -123,10 +123,10 @@ class NativeWebView {
             case "start":
                 return;
             case "end":
-                this.closing(null);
+                this.#closing(null);
                 return;
             case "message":
-                this.onMessage(JSON.parse(decodeURIComponent(message.message)));
+                this.#onMessage(JSON.parse(decodeURIComponent(message.message)));
                 return;
             case "path":
                 let file = "";
@@ -135,8 +135,8 @@ class NativeWebView {
                 } else {
                     file = message.url.replace("nwv://index.html/", "").replace("nwv://", "");
                 }
-                const path = this.getPath(file);
-                this.sendPath({url: message.url, path, mimetype: this.getMimetype(path)});
+                const path = this.#getPath(file);
+                this.#sendPath({url: message.url, path, mimetype: this.#getMimetype(path)});
                 return;
 
             case "log":
@@ -147,13 +147,13 @@ class NativeWebView {
                 return;
 
             case "fileDropHovered":
-                this.onDrop(message);
+                this.#onDrop(message);
                 return;
             case "fileDropDropped":
-                this.onDrop(message);
+                this.#onDrop(message);
                 return;
             case "fileDropCancelled":
-                this.onDrop(message);
+                this.#onDrop(message);
                 return;
 
             default:
@@ -170,14 +170,14 @@ class NativeWebView {
                 // mac drop the \n between two messages is on end of data stream
                 const index = out.indexOf(IO_CHANNEL_PREFIX, IO_CHANNEL_PREFIX.length);
                 if(index > 0) {
-                    this.parseIOMessage(out.substring(0, index));
-                    this.parseIOMessage(out.substring(index));
+                    this.#parseIOMessage(out.substring(0, index));
+                    this.#parseIOMessage(out.substring(index));
                 } else {
                     console.error("Message parse error. ", e);
                 }
             }
 
-            this.receiveChannel(message);
+            this.#receiveChannel(message);
             if(message) {
             }
         } else {
@@ -186,34 +186,34 @@ class NativeWebView {
     }
 
     #initChildProcess(childProcess) { // childProcess: ChildProcessWithoutNullStreams
-        if(this.childProcess !== null) throw Error("WebView is already running.");
+        if(this.#childProcess !== null) throw Error("WebView is already running.");
 
-        this.childProcess = childProcess;
+        this.#childProcess = childProcess;
 
         // error
-        this.childProcess.stderr.on("data", (data) => {
-            this.closing(new Error(`WebView error: ${data}`));
+        this.#childProcess.stderr.on("data", (data) => {
+            this.#closing(new Error(`WebView error: ${data}`));
         });
 
-        this.childProcess.on("close", (code) => {
-            this.closing(null);
+        this.#childProcess.on("close", (code) => {
+            this.#closing(null);
         });
 
         // receive message
         let out = "";
-        this.childProcess.stdout.on("data", (data) => {
+        this.#childProcess.stdout.on("data", (data) => {
             data.toString().split("\n").forEach((row, i) => {
                 if(i == 0) {
                     out += row.trim();
                 } else {
-                    this.parseIOMessage(out);
+                    this.#parseIOMessage(out);
                     out = row.trim();
                 }
             });
         });
 
-        // TODO: update setting with first run
-        for(const [type, value] of Object.entries(this.settings)) {
+        // Uupdates settings on first run
+        for(const [type, value] of Object.entries(this.#settings)) {
             if(value !== null) {
                 this.set(type, value);
             }
@@ -221,16 +221,16 @@ class NativeWebView {
     }
 
     #closing(status) { // status: null | Error
-        this.closeListeners.forEach(l => l(status));
-        this.closeListeners = [];
-        if(this.childProcess !== null) {
-            this.childProcess.kill();
-            this.childProcess = null;
+        this.#closeListeners.forEach(l => l(status));
+        this.#closeListeners = [];
+        if(this.#childProcess !== null) {
+            this.#childProcess.kill();
+            this.#childProcess = null;
         }
     }
 
     set(type, setting) { // set<Type extends keyof NativeWebViewSettings>(type: Type, setting: NativeWebViewSettings[Type]) {
-        this.sendSetting(type, setting);
+        this.#sendSetting(type, setting);
     }
 
     // ------ most used --------
@@ -248,23 +248,24 @@ class NativeWebView {
     }
 
     onClose() { // : Promise<null | Error> {
-        if(this.childProcess === null) {
+        if(this.#childProcess === null) {
             return Promise.resolve(null);
         } else {
-            return new Promise(resolve => this.closeListeners.push(resolve));
+            return new Promise(resolve => this.#closeListeners.push(resolve));
         }
     }
 }
 
 module.exports = async function openWebView(settings) { // openWebView(settings: InitNativeWebViewSettings): Promise<NativeWebView>
-    const {title, transparent} = settings;
+    const {title, transparent, devtools} = settings;
 
     const args = ["--title", JSON.stringify(title)];
-    if(transparent === true) args.push("--transparent");
+    if(!!transparent) args.push("--transparent");
+    if(!!devtools) args.push("--devtools");
 
     if(!isBinaryFile()) await downloadBinaryFile();
 
-    const childProcess = spawn(getBinaryPath(), args, {});
+    const childProcess = spawn(getBinaryPath(), args, {env: {RUST_BACKTRACE: "1"}});
     childProcess.stdin.setDefaultEncoding("utf-8");
 
     const webview = new NativeWebView(settings, childProcess);

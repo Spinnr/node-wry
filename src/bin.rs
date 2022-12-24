@@ -29,6 +29,9 @@ struct Args {
     title: String,
     #[clap(long)]
     transparent: bool,
+    #[cfg(debug_assertions)]
+    #[clap(long)]
+    devtools: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -78,10 +81,10 @@ enum Settings {
     OuterPosition { top: f64, left: f64 },
     AlwaysOnTop { always: bool },
     Decorations { decorations: bool },
-    // Transparent { transparent: bool },
     Fullscreen { fullscreen: bool },
     Maximized { maximized: bool },
     Minimized { minimized: bool },
+    Devtools { devtools: bool },
 }
 
 #[derive(Deserialize)]
@@ -188,6 +191,7 @@ fn main() -> wry::Result<()> {
             }
             true // Returning true will block the OS default behaviour.
         })
+        .with_devtools(args.devtools)
         .build()?;
 
     let monitor = event_loop
@@ -268,6 +272,15 @@ fn main() -> wry::Result<()> {
                     }
                     Settings::Maximized { maximized } => window.set_maximized(maximized),
                     Settings::Minimized { minimized } => window.set_minimized(minimized),
+                    Settings::Devtools { devtools } => {
+                        if cfg!(debug_assertions) {
+                            if devtools {
+                                webview.open_devtools();
+                            } else {
+                                webview.close_devtools();
+                            }
+                        }
+                    }
                 }
             }
             Event::NewEvents(StartCause::Init) => send_ioc_message(Message::Start {}),
